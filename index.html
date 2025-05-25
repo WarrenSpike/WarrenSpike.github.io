@@ -1,15 +1,77 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-	<head>    
-		<meta charset="UTF-8">    
-		<title>To-Do List</title>    
-		<script src="script.js" defer></script>
-	</head>
-	<body>    
-		<h1>To-Do List</h1>    
-		<input type="text" id="taskInput" placeholder="輸入你的待辦事項">    
-		<button id="addTaskButton">新增任務</button>    
-		<ul id="taskList">
-        </ul>
-	</body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warren - Personal Website</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+            <h1>Warren</h1>
+            <p>Welcome to my personal space!</p>
+        </header>
+
+        <section class="section">
+            <h2>About Me</h2>
+            <p>Hey there! I'm Warren,Allen is Allen because he is Allen and he is also a Allen because he is a Allen , so Allen is Allen because Allen is a Allen.</p>
+        </section>
+
+        <section class="section">
+            <h2>My Hobbies</h2>
+            <div class="hobbies">
+                <div class="hobby-tag">🎮 Play Video Games</div>
+                <div class="hobby-tag">🔫 Shooting Games</div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>My skills</h2>
+            <div class="skills">
+                <div class="skills-tag">eat</div>
+                <div class="skills-tag">drink</div>
+                <div class="skills-tag">sleep</div>
+                <div class="skills-tag">Scratch</div>
+                <div class="skills-tag">Python</div>
+                <div class="skills-tag">Arduino</div>
+                <div class="skills-tag">Solve Rubiks cube</div>
+                <div class="skills-tag">Roblox Studio</div>
+                <div class="skills-tag">breathe</div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>My Specialty</h2>
+            <div class="specialty">
+                <div class="specialty-tag">🚀 I can jump very high!</div>
+                <div class="specialty-tag">🚀 I can fly too! !</div>
+            </div>
+        </section>
+
+        <section class="section game-section">
+            <h2>Shooting Minigame</h2>
+            <p class="instructions">Click and hold to aim, then release to shoot the targets! Use your precision skills!</p>
+            
+            <div class="shooting-game">
+                <div class="game-area">
+                    <div class="score">Score: <span id="scoreValue">0</span></div>
+                    <div class="crosshair" id="crosshair">+</div>
+                    <div class="target" id="target">🎯</div>
+                    <div class="power-meter">
+                        <div class="power-fill" id="powerFill"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>Thanks for visiting my website! 🎮✨</p>
+            <p>Favorite Colors: Black & White</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
 </html>
