@@ -148,6 +148,7 @@ function shoot() {
     }, 300);
 }
 
+
 function handleSuccessfulShot() {
     score++;
     scoreValue.textContent = score;
@@ -162,6 +163,7 @@ function handleSuccessfulShot() {
     }, 500);
 }
 
+
 function handleMissedShot() {
     // Visual feedback for miss - maybe shake the target or show miss indicator
     target.style.transform = 'scale(0.9)';
@@ -169,6 +171,7 @@ function handleMissedShot() {
         target.style.transform = 'scale(1)';
     }, 200);
 }
+
 
 function moveTarget() {
     const gameRect = gameArea.getBoundingClientRect();
@@ -181,6 +184,7 @@ function moveTarget() {
     target.style.left = targetPosition.x + 'px';
     target.style.top = targetPosition.y + 'px';
 }
+
 
 function resetGame() {
     setTimeout(() => {
@@ -206,15 +210,26 @@ function createMuzzleFlash(x, y) {
     }, 200);
 }
 
+
 function createFallingSpike() {
     const spike = document.createElement('div');
-    spike.innerHTML = '🌵'; // Spike from Brawl Stars (cactus emoji)
+
+    // Determine cactus type by random chance
+    const rand = Math.random();
+    if (rand < 0.0001) {
+        spike.innerHTML = '🌈'; // Rainbow cactus (0.01%)
+    } else if (rand < 0.01) {
+        spike.innerHTML = '🌟'; // Golden cactus (0.99%)
+    } else {
+        spike.innerHTML = '🌵'; // Normal cactus (99%)
+    }
+
     spike.className = 'spike';
     spike.style.left = Math.random() * window.innerWidth + 'px';
     spike.style.top = '-50px';
-    
+
     document.body.appendChild(spike);
-    
+
     // Remove spike after animation completes
     setTimeout(() => {
         if (spike.parentNode) {
@@ -222,6 +237,7 @@ function createFallingSpike() {
         }
     }, 6000);
 }
+
 
 // Initialize everything when the page loads
 document.addEventListener('DOMContentLoaded', function() {
