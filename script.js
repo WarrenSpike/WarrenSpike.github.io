@@ -1,13 +1,17 @@
-// Import Firebase functions directly into this module
-import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js"; // 注意 Firebase SDK 版本號要和 index.html 裡的 firebase-app.js 一致！
-
-// Get the initialized Firebase app instance from the global scope
-// `window.firebaseApp` 是我們在 index.html 中設定的
-const firebaseApp = window.firebaseApp;
-const database = getDatabase(firebaseApp); // Initialize database service here
+// Import Firebase Realtime Database functions directly into this module
+// Notice: We import ALL necessary functions here.
+import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
 // DOM Elements
 const themeToggle = document.getElementById('themeToggle');
+const newHomeworkInput = document.getElementById('newHomework');
+const newDueDateInput = document.getElementById('newDueDate');
+const addHomeworkButton = document.getElementById('addHomework');
+const homeworkList = document.getElementById('homeworkList');
+
+// Global variable for database instance
+// We declare it here but initialize it inside DOMContentLoaded
+let database; 
 
 // Theme Management (保持不變)
 function initTheme() {
@@ -30,22 +34,6 @@ function toggleTheme() {
 function updateThemeIcon(theme) {
     themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
 }
-
-// --- Homework Checklist Logic ---
-
-// DOM Elements for Homework
-const newHomeworkInput = document.getElementById('newHomework');
-const newDueDateInput = document.getElementById('newDueDate');
-const addHomeworkButton = document.getElementById('addHomework');
-const homeworkList = document.getElementById('homeworkList');
-
-// --- Firebase 相關變數 ---
-let database; // 將在 DOMContentLoaded 後初始化
-
-// 獲取 Firebase Realtime Database 相關函數
-// 由於我們在 index.html 中使用了 type="module" 並將 database 暴露到 window，
-// 所以這裡可以直接從 window.firebaseDatabase 取得。
-// 確保 script.js 在 Firebase SDK 載入後執行。
 
 // Function to add a homework item to the DOM
 // 這個函數現在只負責將資料顯示在網頁上，不再處理儲存邏輯
@@ -92,7 +80,8 @@ function addHomeworkToDOM(id, text, dueDate = '', completed = false) {
         // 更新 Firebase 中的 completed 狀態
         const itemId = listItem.dataset.id;
         const newCompletedStatus = !listItem.classList.contains('completed');
-        const homeworkRef = ref(database, 'homework/' + itemId);
+        // IMPORTANT: Ensure 'database' is defined here. It will be from the DOMContentLoaded scope.
+        const homeworkRef = ref(database, 'homework/' + itemId); 
         update(homeworkRef, { completed: newCompletedStatus }); // 使用 update 更新部分資料
     });
     buttonsContainer.appendChild(completeButton);
@@ -103,7 +92,8 @@ function addHomeworkToDOM(id, text, dueDate = '', completed = false) {
     deleteButton.addEventListener('click', () => {
         // 從 Firebase 中刪除作業
         const itemId = listItem.dataset.id;
-        const homeworkRef = ref(database, 'homework/' + itemId);
+        // IMPORTANT: Ensure 'database' is defined here. It will be from the DOMContentLoaded scope.
+        const homeworkRef = ref(database, 'homework/' + itemId); 
         remove(homeworkRef); // 刪除資料
     });
     buttonsContainer.appendChild(deleteButton);
@@ -114,7 +104,7 @@ function addHomeworkToDOM(id, text, dueDate = '', completed = false) {
     insertSorted(listItem);
 }
 
-// 輔助函數：將項目按排序規則插入到列表中
+// 輔助函數：將項目按排序規則插入到列表中 (保持不變)
 function insertSorted(newItem) {
     const items = Array.from(homeworkList.children);
     let inserted = false;
@@ -148,7 +138,6 @@ function insertSorted(newItem) {
     }
 }
 
-
 // Event listener for adding new homework
 addHomeworkButton.addEventListener('click', () => {
     const text = newHomeworkInput.value.trim();
@@ -156,6 +145,7 @@ addHomeworkButton.addEventListener('click', () => {
 
     if (text !== '') {
         // 將新作業推送到 Firebase Realtime Database
+        // IMPORTANT: Ensure 'database' is defined here. It will be from the DOMContentLoaded scope.
         const homeworkRef = ref(database, 'homework'); // 參考 'homework' 節點
         push(homeworkRef, { // 使用 push 創建一個帶有唯一 key 的新節點
             text: text,
@@ -168,7 +158,7 @@ addHomeworkButton.addEventListener('click', () => {
     }
 });
 
-// Allow adding homework with Enter key
+// Allow adding homework with Enter key (保持不變)
 newHomeworkInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         addHomeworkButton.click();
@@ -178,11 +168,17 @@ newHomeworkInput.addEventListener('keypress', (e) => {
 // Initialize everything when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     initTheme();
-    // 取得 Firebase database 實例
-    database = window.firebaseDatabase; 
+
+    // === Firebase Initialization moved here ===
+    // Get the initialized Firebase app instance from the global scope
+    // This ensures window.firebaseApp is available after the DOM is fully loaded.
+    const firebaseApp = window.firebaseApp;
+    // Now initialize the database service
+    database = getDatabase(firebaseApp); 
+    // === End Firebase Initialization ===
 
     // 監聽 Firebase 資料庫的變化
-    const homeworkRef = ref(database, 'homework');
+    const homeworkRef = ref(database, 'homework'); // Now 'database' is guaranteed to be initialized
     onValue(homeworkRef, (snapshot) => {
         // 清空當前列表，因為我們要從 Firebase 重新載入所有資料
         homeworkList.innerHTML = ''; 
