@@ -1,20 +1,7 @@
-// Game Variables
-let score = 0;
-let isAiming = false;
-let power = 0;
-let gameActive = true;
-let chargingInterval;
-let targetPosition = { x: 200, y: 100 };
-
 // DOM Elements
-const crosshair = document.getElementById('crosshair');
-const powerFill = document.getElementById('powerFill');
-const scoreValue = document.getElementById('scoreValue');
-const target = document.getElementById('target');
-const gameArea = document.querySelector('.game-area');
 const themeToggle = document.getElementById('themeToggle');
 
-// Theme Management
+// Theme Management (Keep as is)
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -36,211 +23,146 @@ function updateThemeIcon(theme) {
     themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
 }
 
-// Initialize Game
-function initGame() {
-    // Mouse events for aiming
-    gameArea.addEventListener('mousemove', updateCrosshair);
-    gameArea.addEventListener('mousedown', startAiming);
-    gameArea.addEventListener('mouseup', shoot);
-    gameArea.addEventListener('mouseleave', cancelAiming);
+// --- Homework Checklist Logic ---
 
-    // Touch events for mobile
-    gameArea.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        updateCrosshairTouch(e);
+// DOM Elements for Homework
+const newHomeworkInput = document.getElementById('newHomework');
+const newDueDateInput = document.getElementById('newDueDate'); // New: Due Date Input
+const addHomeworkButton = document.getElementById('addHomework');
+const homeworkList = document.getElementById('homeworkList');
+
+// Function to load homework from localStorage
+function loadHomework() {
+    const homework = JSON.parse(localStorage.getItem('homework')) || [];
+    // Sort homework by due date (earliest first), then by completion status
+    homework.sort((a, b) => {
+        // Completed items go to the bottom
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+
+        // Then sort by date
+        const dateA = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31'); // Push items without dates to end
+        const dateB = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
+        return dateA - dateB;
     });
+    homework.forEach(item => addHomeworkToDOM(item.text, item.dueDate, item.completed));
+}
 
-    gameArea.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        updateCrosshairTouch(e);
-        startAiming();
+// Function to save homework to localStorage
+function saveHomework() {
+    const homeworkItems = [];
+    homeworkList.querySelectorAll('li').forEach(li => {
+        homeworkItems.push({
+            text: li.querySelector('.homework-text').textContent, // Select by new class
+            dueDate: li.dataset.dueDate || '', // Get due date from dataset
+            completed: li.classList.contains('completed')
+        });
     });
-
-    gameArea.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        shoot();
-    });
-
-    // Initialize target position
-    moveTarget();
-    
-    // Start falling Spikes
-    setInterval(createFallingSpike, 2000);
+    localStorage.setItem('homework', JSON.stringify(homeworkItems));
 }
 
-// Crosshair Functions
-function updateCrosshair(e) {
-    const rect = gameArea.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    crosshair.style.left = (x - 15) + 'px';
-    crosshair.style.top = (y - 15) + 'px';
-}
+// Function to add a homework item to the DOM
+function addHomeworkToDOM(text, dueDate = '', completed = false) {
+    const listItem = document.createElement('li');
+    listItem.className = 'homework-item';
+    listItem.dataset.dueDate = dueDate; // Store due date in a data attribute
 
-function updateCrosshairTouch(e) {
-    const rect = gameArea.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    
-    crosshair.style.left = (x - 15) + 'px';
-    crosshair.style.top = (y - 15) + 'px';
-}
-
-// Game Functions
-function startAiming() {
-    if (!gameActive) return;
-    
-    isAiming = true;
-    power = 0;
-    
-    chargingInterval = setInterval(() => {
-        if (power < 100) {
-            power += 3;
-            powerFill.style.height = power + '%';
-        }
-    }, 50);
-}
-
-function cancelAiming() {
-    if (isAiming) {
-        isAiming = false;
-        clearInterval(chargingInterval);
-        powerFill.style.height = '0%';
-        power = 0;
-    }
-}
-
-function shoot() {
-    if (!isAiming || !gameActive) return;
-    
-    isAiming = false;
-    clearInterval(chargingInterval);
-    gameActive = false;
-    
-    // Get crosshair position
-    const crosshairRect = crosshair.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    
-    // Create muzzle flash effect
-    createMuzzleFlash(crosshair.offsetLeft + 15, crosshair.offsetTop + 15);
-    
-    // Check if shot hits target (within reasonable distance)
-    const distance = Math.sqrt(
-        Math.pow(crosshairRect.left - targetRect.left, 2) + 
-        Math.pow(crosshairRect.top - targetRect.top, 2)
-    );
-    
-    // Hit detection based on power and distance
-    const hitThreshold = Math.max(50, 150 - power); // Better aim with more power
-    const isHit = distance < hitThreshold;
-    
-    setTimeout(() => {
-        if (isHit) {
-            handleSuccessfulShot();
-        } else {
-            handleMissedShot();
-        }
-        
-        // Reset for next shot
-        resetGame();
-    }, 300);
-}
-
-
-function handleSuccessfulShot() {
-    score++;
-    scoreValue.textContent = score;
-    
-    // Target hit animation
-    target.classList.add('hit-target');
-    
-    // Move target to new position
-    setTimeout(() => {
-        target.classList.remove('hit-target');
-        moveTarget();
-    }, 500);
-}
-
-
-function handleMissedShot() {
-    // Visual feedback for miss - maybe shake the target or show miss indicator
-    target.style.transform = 'scale(0.9)';
-    setTimeout(() => {
-        target.style.transform = 'scale(1)';
-    }, 200);
-}
-
-
-function moveTarget() {
-    const gameRect = gameArea.getBoundingClientRect();
-    const maxX = gameArea.offsetWidth - 60; // Account for target size
-    const maxY = gameArea.offsetHeight - 60;
-    
-    targetPosition.x = Math.random() * maxX;
-    targetPosition.y = Math.random() * maxY;
-    
-    target.style.left = targetPosition.x + 'px';
-    target.style.top = targetPosition.y + 'px';
-}
-
-
-function resetGame() {
-    setTimeout(() => {
-        powerFill.style.height = '0%';
-        power = 0;
-        gameActive = true;
-    }, 500);
-}
-
-// Visual Effects
-function createMuzzleFlash(x, y) {
-    const flash = document.createElement('div');
-    flash.className = 'muzzle-flash flash';
-    flash.style.left = x + 'px';
-    flash.style.top = y + 'px';
-    
-    gameArea.appendChild(flash);
-    
-    setTimeout(() => {
-        if (flash.parentNode) {
-            flash.remove();
-        }
-    }, 200);
-}
-
-
-function createFallingSpike() {
-    const spike = document.createElement('div');
-
-    // Determine cactus type by random chance
-    const rand = Math.random();
-    if (rand < 0.0001) {
-        spike.innerHTML = '🌈'; // Rainbow cactus (0.01%)
-    } else if (rand < 0.01) {
-        spike.innerHTML = '🌟'; // Golden cactus (0.99%)
-    } else {
-        spike.innerHTML = '🌵'; // Normal cactus (99%)
+    if (completed) {
+        listItem.classList.add('completed');
     }
 
-    spike.className = 'spike';
-    spike.style.left = Math.random() * window.innerWidth + 'px';
-    spike.style.top = '-50px';
+    const itemContent = document.createElement('div');
+    itemContent.className = 'homework-content';
 
-    document.body.appendChild(spike);
+    const itemText = document.createElement('span');
+    itemText.className = 'homework-text'; // New class for homework text
+    itemText.textContent = text;
+    itemContent.appendChild(itemText);
 
-    // Remove spike after animation completes
-    setTimeout(() => {
-        if (spike.parentNode) {
-            spike.remove();
-        }
-    }, 6000);
+    if (dueDate) {
+        const dateDisplay = document.createElement('span');
+        dateDisplay.className = 'homework-due-date';
+        // Format date for display (e.g., "Due: Jul 15, 2025")
+        const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+        dateDisplay.textContent = `Due: ${new Date(dueDate).toLocaleDateString(undefined, dateOptions)}`;
+        itemContent.appendChild(dateDisplay);
+    }
+
+    listItem.appendChild(itemContent); // Append content div to listItem
+
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'homework-buttons';
+
+    const completeButton = document.createElement('button');
+    completeButton.textContent = completed ? 'Unmark' : 'Done';
+    completeButton.className = 'complete-btn';
+    completeButton.addEventListener('click', () => {
+        listItem.classList.toggle('completed');
+        completeButton.textContent = listItem.classList.contains('completed') ? 'Unmark' : 'Done';
+        saveHomework(); // Save changes
+        sortHomeworkList(); // Re-sort after status change
+    });
+    buttonsContainer.appendChild(completeButton);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Delete';
+    deleteButton.className = 'delete-btn';
+    deleteButton.addEventListener('click', () => {
+        listItem.remove();
+        saveHomework(); // Save changes
+    });
+    buttonsContainer.appendChild(deleteButton);
+
+    listItem.appendChild(buttonsContainer); // Append buttons container to listItem
+
+    homeworkList.appendChild(listItem);
 }
 
+// Function to sort the homework list in the DOM
+function sortHomeworkList() {
+    const items = Array.from(homeworkList.children);
+    items.sort((a, b) => {
+        const completedA = a.classList.contains('completed');
+        const completedB = b.classList.contains('completed');
+
+        // Completed items go to the bottom
+        if (completedA && !completedB) return 1;
+        if (!completedA && completedB) return -1;
+
+        // Then sort by date
+        const dateA = a.dataset.dueDate ? new Date(a.dataset.dueDate) : new Date('9999-12-31');
+        const dateB = b.dataset.dueDate ? new Date(b.dataset.dueDate) : new Date('9999-12-31');
+        return dateA - dateB;
+    });
+    items.forEach(item => homeworkList.appendChild(item));
+    saveHomework(); // Save the new order
+}
+
+
+// Event listener for adding new homework
+addHomeworkButton.addEventListener('click', () => {
+    const text = newHomeworkInput.value.trim();
+    const dueDate = newDueDateInput.value; // Get the date value
+
+    if (text !== '') {
+        addHomeworkToDOM(text, dueDate);
+        newHomeworkInput.value = ''; // Clear text input
+        newDueDateInput.value = ''; // Clear date input
+        sortHomeworkList(); // Sort immediately after adding
+    }
+});
+
+// Allow adding homework with Enter key (if text field is focused)
+newHomeworkInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        addHomeworkButton.click();
+    }
+});
 
 // Initialize everything when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     initTheme();
-    initGame();
+    loadHomework(); // Load saved homework on page load
+    // Set default due date to today for convenience
+    newDueDateInput.valueAsDate = new Date(); 
 });
