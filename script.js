@@ -1,7 +1,7 @@
 // DOM Elements
 const themeToggle = document.getElementById('themeToggle');
 
-// Theme Management (Keep as is)
+// Theme Management (保持不變)
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -27,45 +27,25 @@ function updateThemeIcon(theme) {
 
 // DOM Elements for Homework
 const newHomeworkInput = document.getElementById('newHomework');
-const newDueDateInput = document.getElementById('newDueDate'); // New: Due Date Input
+const newDueDateInput = document.getElementById('newDueDate');
 const addHomeworkButton = document.getElementById('addHomework');
 const homeworkList = document.getElementById('homeworkList');
 
-// Function to load homework from localStorage
-function loadHomework() {
-    const homework = JSON.parse(localStorage.getItem('homework')) || [];
-    // Sort homework by due date (earliest first), then by completion status
-    homework.sort((a, b) => {
-        // Completed items go to the bottom
-        if (a.completed && !b.completed) return 1;
-        if (!a.completed && b.completed) return -1;
+// --- Firebase 相關變數 ---
+let database; // 將在 DOMContentLoaded 後初始化
 
-        // Then sort by date
-        const dateA = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31'); // Push items without dates to end
-        const dateB = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
-        return dateA - dateB;
-    });
-    homework.forEach(item => addHomeworkToDOM(item.text, item.dueDate, item.completed));
-}
-
-// Function to save homework to localStorage
-function saveHomework() {
-    const homeworkItems = [];
-    homeworkList.querySelectorAll('li').forEach(li => {
-        homeworkItems.push({
-            text: li.querySelector('.homework-text').textContent, // Select by new class
-            dueDate: li.dataset.dueDate || '', // Get due date from dataset
-            completed: li.classList.contains('completed')
-        });
-    });
-    localStorage.setItem('homework', JSON.stringify(homeworkItems));
-}
+// 獲取 Firebase Realtime Database 相關函數
+// 由於我們在 index.html 中使用了 type="module" 並將 database 暴露到 window，
+// 所以這裡可以直接從 window.firebaseDatabase 取得。
+// 確保 script.js 在 Firebase SDK 載入後執行。
 
 // Function to add a homework item to the DOM
-function addHomeworkToDOM(text, dueDate = '', completed = false) {
+// 這個函數現在只負責將資料顯示在網頁上，不再處理儲存邏輯
+function addHomeworkToDOM(id, text, dueDate = '', completed = false) {
     const listItem = document.createElement('li');
     listItem.className = 'homework-item';
-    listItem.dataset.dueDate = dueDate; // Store due date in a data attribute
+    listItem.dataset.id = id; // 儲存 Firebase 的 key 作為 data-id
+    listItem.dataset.dueDate = dueDate;
 
     if (completed) {
         listItem.classList.add('completed');
@@ -75,20 +55,24 @@ function addHomeworkToDOM(text, dueDate = '', completed = false) {
     itemContent.className = 'homework-content';
 
     const itemText = document.createElement('span');
-    itemText.className = 'homework-text'; // New class for homework text
+    itemText.className = 'homework-text';
     itemText.textContent = text;
     itemContent.appendChild(itemText);
 
     if (dueDate) {
         const dateDisplay = document.createElement('span');
         dateDisplay.className = 'homework-due-date';
-        // Format date for display (e.g., "Due: Jul 15, 2025")
         const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
         dateDisplay.textContent = `Due: ${new Date(dueDate).toLocaleDateString(undefined, dateOptions)}`;
+        
+        // 檢查是否過期 (只有未完成的作業才檢查過期)
+        if (!completed && new Date(dueDate) < new Date()) {
+            dateDisplay.classList.add('overdue');
+        }
         itemContent.appendChild(dateDisplay);
     }
 
-    listItem.appendChild(itemContent); // Append content div to listItem
+    listItem.appendChild(itemContent);
 
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'homework-buttons';
@@ -97,10 +81,11 @@ function addHomeworkToDOM(text, dueDate = '', completed = false) {
     completeButton.textContent = completed ? 'Unmark' : 'Done';
     completeButton.className = 'complete-btn';
     completeButton.addEventListener('click', () => {
-        listItem.classList.toggle('completed');
-        completeButton.textContent = listItem.classList.contains('completed') ? 'Unmark' : 'Done';
-        saveHomework(); // Save changes
-        sortHomeworkList(); // Re-sort after status change
+        // 更新 Firebase 中的 completed 狀態
+        const itemId = listItem.dataset.id;
+        const newCompletedStatus = !listItem.classList.contains('completed');
+        const homeworkRef = ref(database, 'homework/' + itemId);
+        update(homeworkRef, { completed: newCompletedStatus }); // 使用 update 更新部分資料
     });
     buttonsContainer.appendChild(completeButton);
 
@@ -108,51 +93,74 @@ function addHomeworkToDOM(text, dueDate = '', completed = false) {
     deleteButton.textContent = 'Delete';
     deleteButton.className = 'delete-btn';
     deleteButton.addEventListener('click', () => {
-        listItem.remove();
-        saveHomework(); // Save changes
+        // 從 Firebase 中刪除作業
+        const itemId = listItem.dataset.id;
+        const homeworkRef = ref(database, 'homework/' + itemId);
+        remove(homeworkRef); // 刪除資料
     });
     buttonsContainer.appendChild(deleteButton);
 
-    listItem.appendChild(buttonsContainer); // Append buttons container to listItem
+    listItem.appendChild(buttonsContainer);
 
-    homeworkList.appendChild(listItem);
+    // 將新項目插入到正確的排序位置
+    insertSorted(listItem);
 }
 
-// Function to sort the homework list in the DOM
-function sortHomeworkList() {
+// 輔助函數：將項目按排序規則插入到列表中
+function insertSorted(newItem) {
     const items = Array.from(homeworkList.children);
-    items.sort((a, b) => {
-        const completedA = a.classList.contains('completed');
-        const completedB = b.classList.contains('completed');
+    let inserted = false;
 
-        // Completed items go to the bottom
-        if (completedA && !completedB) return 1;
-        if (!completedA && completedB) return -1;
+    const newItemCompleted = newItem.classList.contains('completed');
+    const newItemDueDate = newItem.dataset.dueDate ? new Date(newItem.dataset.dueDate) : new Date('9999-12-31');
 
-        // Then sort by date
-        const dateA = a.dataset.dueDate ? new Date(a.dataset.dueDate) : new Date('9999-12-31');
-        const dateB = b.dataset.dueDate ? new Date(b.dataset.dueDate) : new Date('9999-12-31');
-        return dateA - dateB;
-    });
-    items.forEach(item => homeworkList.appendChild(item));
-    saveHomework(); // Save the new order
+    for (let i = 0; i < items.length; i++) {
+        const existingItem = items[i];
+        const existingItemCompleted = existingItem.classList.contains('completed');
+        const existingItemDueDate = existingItem.dataset.dueDate ? new Date(existingItem.dataset.dueDate) : new Date('9999-12-31');
+
+        // 排序邏輯：未完成的在前，已完成的在後
+        if (!newItemCompleted && existingItemCompleted) {
+            homeworkList.insertBefore(newItem, existingItem);
+            inserted = true;
+            break;
+        }
+        // 如果完成狀態相同，則按日期排序
+        if (newItemCompleted === existingItemCompleted) {
+            if (newItemDueDate < existingItemDueDate) {
+                homeworkList.insertBefore(newItem, existingItem);
+                inserted = true;
+                break;
+            }
+        }
+    }
+
+    if (!inserted) {
+        homeworkList.appendChild(newItem); // 如果沒有找到合適的位置，就加到最後
+    }
 }
 
 
 // Event listener for adding new homework
 addHomeworkButton.addEventListener('click', () => {
     const text = newHomeworkInput.value.trim();
-    const dueDate = newDueDateInput.value; // Get the date value
+    const dueDate = newDueDateInput.value;
 
     if (text !== '') {
-        addHomeworkToDOM(text, dueDate);
-        newHomeworkInput.value = ''; // Clear text input
-        newDueDateInput.value = ''; // Clear date input
-        sortHomeworkList(); // Sort immediately after adding
+        // 將新作業推送到 Firebase Realtime Database
+        const homeworkRef = ref(database, 'homework'); // 參考 'homework' 節點
+        push(homeworkRef, { // 使用 push 創建一個帶有唯一 key 的新節點
+            text: text,
+            dueDate: dueDate,
+            completed: false
+        });
+
+        newHomeworkInput.value = '';
+        newDueDateInput.value = '';
     }
 });
 
-// Allow adding homework with Enter key (if text field is focused)
+// Allow adding homework with Enter key
 newHomeworkInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         addHomeworkButton.click();
@@ -162,7 +170,39 @@ newHomeworkInput.addEventListener('keypress', (e) => {
 // Initialize everything when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     initTheme();
-    loadHomework(); // Load saved homework on page load
-    // Set default due date to today for convenience
-    newDueDateInput.valueAsDate = new Date(); 
+    // 取得 Firebase database 實例
+    database = window.firebaseDatabase; 
+
+    // 監聽 Firebase 資料庫的變化
+    const homeworkRef = ref(database, 'homework');
+    onValue(homeworkRef, (snapshot) => {
+        // 清空當前列表，因為我們要從 Firebase 重新載入所有資料
+        homeworkList.innerHTML = ''; 
+        const homeworkData = snapshot.val(); // 獲取所有作業資料
+
+        if (homeworkData) {
+            // 將物件轉換為陣列，並包含 Firebase 自動生成的 key (ID)
+            const homeworkArray = Object.keys(homeworkData).map(key => ({
+                id: key,
+                ...homeworkData[key]
+            }));
+
+            // 排序作業：未完成的在前，已完成的在後；然後按日期排序
+            homeworkArray.sort((a, b) => {
+                if (a.completed && !b.completed) return 1;
+                if (!a.completed && b.completed) return -1;
+
+                const dateA = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31');
+                const dateB = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
+                return dateA - dateB;
+            });
+
+            homeworkArray.forEach(item => {
+                addHomeworkToDOM(item.id, item.text, item.dueDate, item.completed);
+            });
+        }
+    });
+
+    // 設定預設到期日為今天
+    newDueDateInput.valueAsDate = new Date();
 });

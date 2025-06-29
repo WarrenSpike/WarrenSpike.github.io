@@ -230,9 +230,10 @@ body {
 
 .homework-item .homework-due-date {
     font-size: 0.9rem;
-    color: var(--due-date-color);
+    color: var(--due-date-color); /* 預設的到期日顏色 */
     opacity: 0.8;
 }
+
 
 /* Style for overdue homework */
 .homework-item:not(.completed) .homework-due-date.overdue {
