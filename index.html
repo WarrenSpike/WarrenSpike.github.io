@@ -90,9 +90,12 @@
     };
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
+    // Initialize Firebase app and make it globally accessible for script.js
+        window.firebaseApp = initializeApp(firebaseConfig);
+        
+        // If you kept getAnalytics import, initialize it here
+        const analytics = getAnalytics(window.firebaseApp); 
     </script>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -1,3 +1,11 @@
+// Import Firebase functions directly into this module
+import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js"; // 注意 Firebase SDK 版本號要和 index.html 裡的 firebase-app.js 一致！
+
+// Get the initialized Firebase app instance from the global scope
+// `window.firebaseApp` 是我們在 index.html 中設定的
+const firebaseApp = window.firebaseApp;
+const database = getDatabase(firebaseApp); // Initialize database service here
+
 // DOM Elements
 const themeToggle = document.getElementById('themeToggle');
 
